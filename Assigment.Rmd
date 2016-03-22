@@ -1,0 +1,119 @@
+---
+title: "Practical Machine Learning project"
+author: "Vachira Hunprasit"
+date: "March 22, 2016"
+---
+#Synopsis
+
+This project is aimed to practice the skill obtained from the 4-week course of practical machine learning. The construction of predictive model is important in the variety of fields such as medicine and economics. In this project, the model building is built from the excercise data. The classification tree model was used to fulfil the objective. However, the initial model yeilded low accuracy. The ensemble model building, in this project random forest, is used to construct the model by voting the best tree model from many trees. The final model yeilded very high accuracy. 
+
+#Project objective
+
+The objective of the project is to classify the paticipants who do excercise or not by using data from Jawbone Up, Nike FuelBand, and Fitbit device.
+
+#Data Preparation
+
+We download data from 2 data file which are for being traning and testing data, respectively
+
+```{r}
+
+##set working directory
+setwd("C:\\VACHIRA\\Coursera\\Machinelearning\\Project")
+#Load working data
+
+training <- read.csv("train_set.csv", sep = ",", na.strings=c("NA",""))
+testing <- read.csv("test_set.csv", sep = ",", na.strings=c("NA",""))
+dim(training)
+dim(testing)
+```
+Before we started the analyses, the follwing packagees were loaded
+```{r}
+library(caret)
+library(tree)
+library(rattle)
+library(rpart)
+library(randomForest)
+```
+#Cleaning data
+
+We are working with traning data, then we have to clean the data by removing some column that contain a lot of Na. In this analysis, we used data which contained no missing value.
+
+```{r}
+NAindex <- apply(training,2,function(x) {sum(is.na(x))}) 
+training <- training[,which(NAindex == 0)]
+NAindex <- apply(testing,2,function(x) {sum(is.na(x))}) 
+testing <- testing[,which(NAindex == 0)]
+```
+The training and testing data now consisted of 60 variables.
+
+#Predictive model building
+##Data partitioning
+To solve the in sample variance, we partitioned the total data to be training set which used for model building and testing data which used for model performance evaluation. In this analysis, we used 75:25 ratio for partitioning
+```{r}
+set.seed(2016)
+inTrain = createDataPartition(training$classe, p = 0.75, list = FALSE)
+train.set = training[inTrain,]
+test.set = training[-inTrain,]
+
+```
+We will build the predictive model on train.set data (14718 observations)
+
+##Classification tree construction
+
+We then constructed the decision tree which the output variable was classe and input variables were 59 varibles from the cleaning process.Since the X and name variable were not yeilded the prediction then we removed.
+
+```{r}
+train.set <- train.set[,-c(1:2)]
+set.seed(2016)
+modelFit <- tree(classe~. , data = train.set)
+#plot(modelFit)
+#text(modelFit)
+summary(modelFit)
+```
+We evaluated the model performance
+
+```{r}
+predict.fit <- predict(modelFit, test.set, type = "class")
+confusionMatrix(predict.fit, test.set$classe)
+```
+The model yeilded moderate accuracy rate (73.88%). Then we need to improve the accuracy rate by investigating where to stop pruning. We did cross validation to check the size of the tree which yielded lowest error rate.
+```{r}
+set.seed(2016)
+cv_tree <- cv.tree(modelFit, FUN = prune.misclass)
+plot(cv_tree$size, cv_tree$dev, type = "b")
+```
+The tree size at 18 resulted the lowest error rate then we built new model and made the algorithm stopped at size 18.
+```{r}
+pruned_model <- prune.misclass(modelFit, best = 18)
+summary(pruned_model)
+plot(pruned_model)
+text(pruned_model)
+```
+```{r}
+predict.prune <- predict(pruned_model, test.set, type = "class")
+confusionMatrix(predict.prune, test.set$classe)
+```
+The accuracy rate was increased to 76.81% which was still a moderate accuracy.
+
+##Ensemble tree model
+We hoped to improve the performance of the classification model by cross validation, but the result was not satisfied. Then we construct multiple classification model called ensemble model which can improved the performace of the model. In this analysis, we used randomforest method.
+
+```{r}
+modRF <- randomForest(classe~ ., data = train.set)
+print(modRF)
+predict.RF <- predict(modRF, test.set, type = "class")
+confusionMatrix(predict.RF,test.set$classe)
+```
+Surprisingly, the accuracy was increased to 99.9% which was very high. The model also have very high sensitivity where for class E, it was 100% sensitivity.
+
+
+
+
+
+
+
+
+
+
+
+
